@@ -1,0 +1,37 @@
+<br><br><br><br><br>
+
+<!-- upload-file.html -->
+<!-- <button mat-raised-button color="primary" (click)="fileInput.click()">
+  Seleccionar archivo
+</button>
+<input type="file" hidden #fileInput (change)="onFileSelected($event)">
+
+<br><br><br><br><br> -->
+dfdfsfdfsdfdfdsfdfdsfdsfdsfdsfdsfsdfdfdsfdsfdsfsdfsdfdf
+<br><br><br><br><br>
+<input type="file" (change)="onFile($event)" />
+<br><br>
+<div *ngIf="progress >= 0">Subiendo: %</div>
+<button *ngIf="uploading" (click)="cancel()">Cancelar</button>
+
+<br><br><br><br><br>
+
+<mat-list>
+    <!-- <div mat-subheader>Folders</div> -->
+    @for (folder of folders; track folder) {
+    <mat-list-item>
+        <mat-icon matListItemIcon (click)="Test()">folder</mat-icon>
+        <div matListItemTitle>{{folder.name}}</div>
+        <!-- <div matListItemLine>{{folder.updated | date}}</div> -->
+    </mat-list-item>
+    }
+    <mat-divider></mat-divider>
+    <!-- <div mat-subheader>Notes</div> -->
+    @for (note of notes; track note) {
+    <mat-list-item>
+        <mat-icon matListItemIcon (click)="Test()">note</mat-icon>
+        <div matListItemTitle>{{note.name}}</div>
+        <!-- <div matListItemLine>{{note.updated | date}}</div> -->
+    </mat-list-item>
+    }
+</mat-list>
