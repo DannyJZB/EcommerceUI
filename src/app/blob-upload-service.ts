@@ -13,7 +13,7 @@ export class BlobUploadService {
 
   // Tu API debe generar una SAS URL para ESTE blob (nombre único)
   getSasUrl(fileName: string) {
-    return this.http.get<{ sasUrl: string }>(`https://localhost:7033/Product/SAS?fileName=${encodeURIComponent(fileName)}`);
+    return this.http.get<{ sasUrl: string }>(`https://ecommerseapi-ceane9gqa8gygwhd.canadacentral-01.azurewebsites.net/Product/SAS?fileName=${encodeURIComponent(fileName)}`);
   }
 
   /**
