@@ -3,11 +3,14 @@ name: Azure Static Web Apps CI/CD
 on:
   push:
     branches:
-      - '**'           # build en cualquier rama
+      - '**'
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
-      - Develop        # PRs que apuntan a develop
+      - develop
+
+env:
+  SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROUD_SAND_0813E1910 }}
 
 jobs:
   build:
@@ -30,54 +33,21 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Archive build
+      - name: Package build
         run: |
+          rm -rf artifact
           mkdir -p artifact
           cp -r dist/EcommerceUI/browser/* artifact/
-      - name: Upload build
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: swa-build
           path: artifact
 
-  deploy_prod:
-    needs: build
-    runs-on: ubuntu-latest
-    # Solo para pushes a develop (la rama ligada en Azure)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: swa-build
-          path: artifact
-
-      - name: Install OIDC Client from Core Package
-        run: npm install @actions/core@1.6.0 @actions/http-client
-
-      - name: Get Id Token
-        uses: actions/github-script@v6
-        id: idtoken
-        with:
-          script: |
-            const core = require('@actions/core')
-            return await core.getIDToken()
-          result-encoding: string
-
-      - name: Deploy to Static Web Apps (PROD)
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          action: upload
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROUD_SAND_0813E1910 }}
-          skip_app_build: true
-          app_location: "artifact"      # subimos lo ya compilado
-          output_location: ""
-          api_location: ""
-          github_id_token: ${{ steps.idtoken.outputs.result }}
-
   deploy_preview:
     needs: build
     runs-on: ubuntu-latest
-    # Solo en PRs abiertos/sync/reopen cuyo destino es develop
     if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.base_ref == 'develop'
     steps:
       - uses: actions/download-artifact@v4
@@ -85,24 +55,33 @@ jobs:
           name: swa-build
           path: artifact
 
-      - name: Deploy to Static Web Apps (PREVIEW)
+      - name: Deploy SWA (Preview)
         uses: Azure/static-web-apps-deploy@v1
         with:
           action: upload
-          # Para previews basta el token del repo; el servicio crea un entorno temporal
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROUD_SAND_0813E1910 }}
+          azure_static_web_apps_api_token: ${{ env.SWA_TOKEN }}
           skip_app_build: true
           app_location: "artifact"
           output_location: ""
           api_location: ""
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }} # comentarios en el PR
 
-  close_preview:
+  deploy_prod:
+    needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.base_ref == 'develop'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     steps:
-      - name: Close PR Environment
+      - uses: actions/download-artifact@v4
+        with:
+          name: swa-build
+          path: artifact
+
+      - name: Deploy SWA (Prod)
         uses: Azure/static-web-apps-deploy@v1
         with:
-          action: close
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          azure_static_web_apps_api_token: ${{ env.SWA_TOKEN }}
+          skip_app_build: true
+          app_location: "artifact"
+          output_location: ""
+          api_location: ""
