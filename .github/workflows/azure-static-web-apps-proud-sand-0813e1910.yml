@@ -3,27 +3,21 @@ name: Azure Static Web Apps CI/CD
 on:
   push:
     branches:
-      - '**'
+      - '**'           # build en cualquier rama
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
-      - Develop
+      - Develop        # PRs que apuntan a develop
 
 jobs:
-  build_and_deploy_job:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+  build:
     runs-on: ubuntu-latest
-    name: Build and Deploy Job
-    permissions:
-      id-token: write
-      contents: read
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: true
           lfs: false
 
-      # AQUI se fija Node para TODO lo que construís vos
       - name: Use Node.js 20.19.0
         uses: actions/setup-node@v4
         with:
@@ -36,6 +30,27 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Archive build
+        run: |
+          mkdir -p artifact
+          cp -r dist/EcommerceUI/browser/* artifact/
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: swa-build
+          path: artifact
+
+  deploy_prod:
+    needs: build
+    runs-on: ubuntu-latest
+    # Solo para pushes a develop (la rama ligada en Azure)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: swa-build
+          path: artifact
+
       - name: Install OIDC Client from Core Package
         run: npm install @actions/core@1.6.0 @actions/http-client
 
@@ -44,32 +59,49 @@ jobs:
         id: idtoken
         with:
           script: |
-            const coredemo = require('@actions/core')
-            return await coredemo.getIDToken()
+            const core = require('@actions/core')
+            return await core.getIDToken()
           result-encoding: string
 
-      - name: Build And Deploy
-        id: builddeploy
+      - name: Deploy to Static Web Apps (PROD)
         uses: Azure/static-web-apps-deploy@v1
         with:
+          action: upload
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROUD_SAND_0813E1910 }}
-          action: "upload"
-
-          # ⬇⬇ CLAVE: saltar build de Oryx y subir lo que ya construiste
           skip_app_build: true
-          app_location: "dist/EcommerceUI/browser"
-          output_location: ""   # vacío
-
-          api_location: ""      # si no tenés API
+          app_location: "artifact"      # subimos lo ya compilado
+          output_location: ""
+          api_location: ""
           github_id_token: ${{ steps.idtoken.outputs.result }}
 
-  close_pull_request_job:
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+  deploy_preview:
+    needs: build
     runs-on: ubuntu-latest
-    name: Close Pull Request Job
+    # Solo en PRs abiertos/sync/reopen cuyo destino es develop
+    if: github.event_name == 'pull_request' && github.event.action != 'closed' && github.base_ref == 'develop'
     steps:
-      - name: Close Pull Request
-        id: closepullrequest
+      - uses: actions/download-artifact@v4
+        with:
+          name: swa-build
+          path: artifact
+
+      - name: Deploy to Static Web Apps (PREVIEW)
         uses: Azure/static-web-apps-deploy@v1
         with:
-          action: "close"
+          action: upload
+          # Para previews basta el token del repo; el servicio crea un entorno temporal
+          skip_app_build: true
+          app_location: "artifact"
+          output_location: ""
+          api_location: ""
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+
+  close_preview:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.base_ref == 'develop'
+    steps:
+      - name: Close PR Environment
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          action: close
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
