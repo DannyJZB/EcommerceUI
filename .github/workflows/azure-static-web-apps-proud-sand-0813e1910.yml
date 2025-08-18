@@ -3,11 +3,11 @@ name: Azure Static Web Apps CI/CD
 on:
   push:
     branches:
-      - '**'
+      - '**'           # build en cualquier rama
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
-      - develop
+      - develop        # PRs cuyo destino es develop
 
 env:
   SWA_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_PROUD_SAND_0813E1910 }}
@@ -64,7 +64,17 @@ jobs:
           app_location: "artifact"
           output_location: ""
           api_location: ""
-          repo_token: ${{ secrets.GITHUB_TOKEN }} # comentarios en el PR
+          repo_token: ${{ secrets.GITHUB_TOKEN }}   # comentarios en el PR
+
+  close_preview:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.base_ref == 'develop'
+    steps:
+      - name: Close PR Environment
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          action: close
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
 
   deploy_prod:
     needs: build
@@ -73,15 +83,3 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: swa-build
-          path: artifact
-
-      - name: Deploy SWA (Prod)
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          action: upload
-          azure_static_web_apps_api_token: ${{ env.SWA_TOKEN }}
-          skip_app_build: true
-          app_location: "artifact"
-          output_location: ""
-          api_location: ""
